@@ -17,7 +17,9 @@ output: html_document
 ```{r warning = FALSE, message = FALSE, results = 'hide'}
 #Sys.setlocale("LC_TIME", "English")
 #setwd('/home/sbudai/Dokumentumok/R_stuff')
-library(ggplot2)
+#trying out changes
+
+ibrary(ggplot2)
 library(dplyr)
 library(data.table)
 library(pander)
