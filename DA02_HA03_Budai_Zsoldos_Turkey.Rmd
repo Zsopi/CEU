@@ -17,7 +17,7 @@ output: html_document
 ```{r warning = FALSE, message = FALSE, results = 'hide'}
 #Sys.setlocale("LC_TIME", "English")
 #setwd('/home/sbudai/Dokumentumok/R_stuff')
-#trying out changes
+
 
 ibrary(ggplot2)
 library(dplyr)
@@ -170,15 +170,14 @@ multiplot(plot1, plot2, cols=2)
 pander(PP.test(dt$GDP)) 
 pander(pperron(dt$GDP))
 ```
-#### We cannot be sure that GDP has unit root or not.
+#### We cannot reject the null of GDP having a unit root
 
 ### Check stationarity of Turkish Lira exchange rate
 ```{r warning = FALSE}
 pander(PP.test(dt$EXC))
 pander(pperron(dt$EXC))
 ```
-#### We cannot be sure that Turkish Lira exchange rate has unit root or not.
-
+#### We cannot reject the null of exchange rate having a unit root
 
 
 ### Plotting log(GDP) & log(Turkish Lira exchange rate) over time
@@ -201,14 +200,14 @@ multiplot(plot3, plot4, cols=2)
 pander(PP.test(log(dt$GDP))) 
 pander(pperron(log(dt$GDP)))
 ```
-#### We cannot be sure that log(GDP) has unit root or not.
+#### We cannot reject the null of log(GDP) having a unit root
 
 ### Check stationarity of log(Turkish Lira exchange rate)
 ```{r warning = FALSE}
 pander(PP.test(log(dt$EXC)))
 pander(pperron(log(dt$EXC)))
 ```
-#### We cannot be sure that log(Turkish Lira exchange rate) has unit root or not.
+#### We cannot reject the null of log(exchange rate) having a unit root
 
 
 
@@ -248,8 +247,8 @@ pander(pperron(dt$ln_EXC_diff[-1]))
 
 ### Checking trends of ln_GDP_diff and ln_EXC_diff
 ```{r warning = FALSE}
-fit1 <- lm(formula = d(ln_GDP_diff) ~ 1, data = dt) # EgyĂˇltalĂˇn nem vagyok biztos benne, hogy Ă­gy kell csinĂˇlni.
-fit2 <- lm(formula = d(ln_EXC_diff) ~ 1, data = dt) # EgyĂˇltalĂˇn nem vagyok biztos benne, hogy Ă­gy kell csinĂˇlni.
+fit1 <- lm(formula = d(ln_GDP_diff) ~ 1, data = dt) # EgyĂˇltalĂˇn nem vagyok biztos benne, hogy Ă�gy kell csinĂˇlni.
+fit2 <- lm(formula = d(ln_EXC_diff) ~ 1, data = dt) # EgyĂˇltalĂˇn nem vagyok biztos benne, hogy Ă�gy kell csinĂˇlni.
 
 stargazer_r(list(fit1, fit2), se = 'newey-west', max_lag = 9, digits = 2, omit.stat=c('LL', 'aic', 'ser', 'f', 'adj.rsq', 'rsq'))
 ```
@@ -267,7 +266,7 @@ pander(fit3)
 fit4 <- lm(formula = ln_EXC_diff ~ Q1 + Q2 + Q3, data = dt)
 pander(fit4)
 ```
-#### There are no significant seasonal dummy variables, so there are no seasonality.
+#### There are no significant seasonal dummy variables, so there is no seasonality.
 
 
 ### Regression ln_GDP_diff on ln_EXC_diff on the same quater (and seasonal dummies)
@@ -286,8 +285,91 @@ stargazer_r(
     column.labels = c('robust SE', 'NW SE, lags 1', 'NW SE, lags 5', 'NW SE, lags 9', 'NW SE, lags 9')
             )
 ```
-#### Seasonal dummies are not significant and does not really matter the number of lags in NW SE estimation.
-#### In quarters with one more percent US$ exchange rate difference increase the level of Turkish GDP difference lessen by an additional 13% on average relative to quarters with one less percent US$ exchange rate difference. If we take into consideration the binary variables for quarters on RHS then the results were the very similar.
+#### Seasonal dummies are not significant and it does not really matter what the number of lags in NW SE estimation are. We will drop seasonal dummies in the following
+#### In quarters with one more percent US$ exchange rate increase, Turkish GDP growth is lower by 0.13 percentage point on average relative to quarters with one less percent change in the US$ exchange rate. If we add quarterly seasonal dummies to the regression,the results are very similar.
+
+
+###dynamic lag analysis
+```{r warning = FALSE}
+
+#first with 4 lags (1 year)
+fit_dynlag4<-lm(
+    as.formula(
+        paste("ln_GDP_diff ~ ", lags(ln_EXC_diff, 0:4))
+    ), 
+    data = dt
+)
+
+pander(fit_dynlag4)
+
+#to find out the cumulative association
+fit_dynlag4_cum<-lm(
+    as.formula(
+        paste("ln_GDP_diff ~ ", lags(d(ln_EXC_diff), 0:3),"+lag(log(EXC),4)")
+    ), 
+    data = dt
+)
+
+pander(fit_dynlag4_cum)
+
+#now ith 9 lags (more than 2 years)
+fit_dynlag9<-lm(
+    as.formula(
+        paste("ln_GDP_diff ~ ", lags(ln_EXC_diff, 0:9))
+    ), 
+    data = dt
+)
+
+pander(fit_dynlag9)
+
+#to find out the cumulative association
+fit_dynlag9_cum<-lm(
+    as.formula(
+        paste("ln_GDP_diff ~ ", lags(d(ln_EXC_diff), 0:8),"+lag(log(EXC),9)")
+    ), 
+    data = dt
+)
+
+pander(fit_dynlag9_cum)
+
+```
+###interpretation: only the contemporaneous effect (lag=0) of the exchange rate is significant statistically, large and negative (meaning that a 1% larger depreciation is associated with a 0.12-0.15 percentage point lower GDP growth.
+
+###The cumulative impact is small and positive, because as time goes by, negative coefficients are followed by positive ones 
+
+
+###VAR analysis
+```{r warning = FALSE}
+
+
+Irf <- function(...) {  # to calculate simple IRF instead of orthogonal by default
+    irf(..., ortho = FALSE)
+}
+
+var_data <- dt %>% select(ln_GDP_diff, ln_EXC_diff) %>% na.omit()
+
+#with one lag
+var1 <- VAR(var_data, p = 1)
+summary(var1)
+plot(Irf(var1, impulse = 'ln_EXC_diff', response = 'ln_GDP_diff'))
+plot(Irf(var1, impulse = 'ln_GDP_diff', response = 'ln_EXC_diff'))
+
+#with 5 lags
+var5 <- VAR(var_data, p = 5)
+summary(var5)
+plot(Irf(var5, impulse = 'ln_EXC_diff', response = 'ln_GDP_diff'))
+plot(Irf(var5, impulse = 'ln_GDP_diff', response = 'ln_EXC_diff'))
+
+```
+###interpretation: VARs are not impressive (95% band is on both sides of zero). Initially, lagged exchange rate weakness is associated with somewhat weaker GDP growth, and vice versa.
+
+###overall interpretation is that beyond the contemporenious effect, there is a weak and statistically not significant interaction between the exchange rate and GDP growth. The contemporaneous effect may come from third variables (financial shocks for example)
+
+######END####
+
+
+
+
 
 
 ### Regression ln_GDP_diff on ln_EXC_diff with 1 quater lagged (and seasonal dummies)
