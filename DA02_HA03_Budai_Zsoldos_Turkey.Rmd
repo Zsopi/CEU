@@ -1,7 +1,7 @@
 ---
 title: "DA02_HA03_Budai_Zsoldos_Turkey"
 author: "Sandor Budai & Istvan Zsoldos"
-date: "2016. febru?r 9."
+date: "2016. February 9."
 output: html_document
   pdf_document:
     toc: yes
